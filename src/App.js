@@ -10,7 +10,6 @@ const watchButtons = [
     label: 'SET',
     id: 'SET',
   },
-
   {
     label: 'MODE',
     id: 'MODE',
@@ -41,17 +40,17 @@ const useInterval = (callback, delay) => {
   }, [callback]);
 
   useEffect(() => {
-  function tick() {
-    savedCallback.current();
-  }
+    function tick() {
+      savedCallback.current();
+    }
 
     if (delay !== null) {
       let id = setInterval(tick, delay);
 
       return () => clearInterval(id);
     }
-  }, [delay])
-}
+  }, [delay]);
+};
 
 const Blinking = (props) => {
   const { stop } = props;
@@ -65,7 +64,7 @@ const Blinking = (props) => {
 
   useInterval(blink, stop ? null : 500);
 
-  // make sure content visible when stop blinking 
+  // make sure content visible when stop blinking
   useEffect(() => {
     if (stop) setOpacity(1);
   }, [stop]);
@@ -85,7 +84,7 @@ const formatTimeUnit = (time, { zero }) => {
   }
 
   return strTime;
-} 
+};
 
 const getHMS = (time) => {
   const config = { zero: true };
@@ -93,6 +92,14 @@ const getHMS = (time) => {
   const hours = formatTimeUnit(Math.floor((time % DAY) / HOUR), config);
   const minutes = formatTimeUnit(Math.floor((time % HOUR) / MINUTE), config);
   const seconds = formatTimeUnit(Math.floor((time % MINUTE) / SECOND), config);
+
+  return [hours, minutes, seconds];
+};
+
+const getHMS2 = time => {
+  const hours = new Date(time).getHours();
+  const minutes = new Date(time).getMinutes();
+  const seconds = new Date(time).getSeconds();
 
   return [hours, minutes, seconds];
 }
@@ -108,12 +115,7 @@ function App() {
   const getTimeDislay = () => {
     const stringState = state.toStrings();
 
-    if (state.matches('time')) {
-      return timeState.currentTime;
-    }
-
     if (state.matches('timer')) {
-      console.log('state.value', state.value);
       const [hours, minutes, seconds] = getHMS(timerState.duration);
       if (stringState.includes('timer.edit')) {
         const [hours, minutes, seconds] = getHMS(timerState.initialDuration);
@@ -141,9 +143,8 @@ function App() {
               <span>TIMES UP</span>
             </Blinking>
           </div>
-        )
-      }
-      else {
+        );
+      } else {
         return `${hours}:${minutes}:${seconds}`;
       }
     }
@@ -155,20 +156,41 @@ function App() {
     }
 
     if (state.matches('alarm')) {
-      return alarmState.currentTime;
+      const [hours, minutes, seconds] = getHMS2(alarmState.currentTime);
+
+      const formattedTime = `${hours}:${minutes}:${seconds}`;
+
+      if (stringState.includes('alarm.active')) {
+        return (
+          <Blinking>{formattedTime}</Blinking>
+        )
+      }
+      return formattedTime;
     }
 
-    return timeState;
+    const hours = new Date(timeState.currentTime).getHours();
+    const minutes = new Date(timeState.currentTime).getMinutes();
+    const seconds = new Date(timeState.currentTime).getSeconds();
+
+    return `${hours}:${minutes}:${seconds}`;
   };
 
-  const isPaused = [{ timer: 'pause'}, { chrono: 'pause'} ].some(state.matches);
-  const isEditMode = [ { timer: 'edit' }, { chrono: 'edit' }].some(state.matches);
+  const isPaused = [{ timer: 'pause' }, { chrono: 'pause' }].some(
+    state.matches,
+  );
+  const isEditMode = [{ timer: 'edit' }, { chrono: 'edit' }].some(
+    state.matches,
+  );
 
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <div>{getTimeDislay()}</div>
-        {isPaused && <Blinking><span>Paused</span></Blinking>}
+        {isPaused && (
+          <Blinking>
+            <span>Paused</span>
+          </Blinking>
+        )}
         {isEditMode && <span>Edit</span>}
       </div>
       <div>
@@ -185,7 +207,8 @@ function App() {
           <button
             className="watch-button"
             key={btn.id}
-            onClick={() => send(btn.id)}>
+            onClick={() => send(btn.id)}
+          >
             {btn.label}
           </button>
         ))}

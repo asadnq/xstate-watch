@@ -4,6 +4,39 @@ import format from 'date-fns/format';
 import add from 'date-fns/add';
 import sub from 'date-fns/sub';
 import getTime from 'date-fns/getTime';
+import * as alarmGuards from './config/alarm';
+
+const { isAlarmOn, isAlarmOff } = alarmGuards;
+
+const SECOND = 1000;
+const MINUTE = 60 * SECOND;
+const HOUR = MINUTE * 60;
+const DAY = 24 * HOUR;
+
+const tickTime = assign(({ alarmCtx, timeCtx }) => {
+  const a = Math.floor((alarmCtx.currentTime % DAY) / 1000);
+  const t = Math.floor((timeCtx.currentTime % DAY) / 1000);
+  const alarmActive = a === t;
+
+  // console.log('alarm -> ', new Date(a));
+  // console.log('time -> ', new Date(t));
+
+  console.log('alarm -> ', a);
+  console.log('time -> ', t);
+
+  console.log('alarm active', alarmActive);
+
+  return {
+    timeCtx: {
+      ...timeCtx,
+      currentTime: new Date().getTime(),
+    },
+    alarmCtx: {
+      ...alarmCtx,
+      active: alarmActive,
+    },
+  };
+});
 
 export const updateAlarmActions = {
   TOGGLE: {
@@ -32,6 +65,38 @@ const resetTimer = assign({
   }),
 });
 
+const updateAlarmInc = assign(({ alarmCtx }) => {
+  const newDuration = getTime(
+    add(alarmCtx.currentTime, {
+      [alarmCtx.editMode]: 1,
+    }),
+  );
+
+  return {
+    alarmCtx: {
+      ...alarmCtx,
+      currentTime: newDuration,
+    },
+  };
+});
+
+const updateAlarmDec = assign(({ alarmCtx }) => {
+  const newDuration = getTime(
+    sub(alarmCtx.currentTime, {
+      [alarmCtx.editMode]: 1,
+    }),
+  );
+
+  const updateValid = newDuration > -1;
+
+  return {
+    alarmCtx: {
+      ...alarmCtx,
+      currentTime: updateValid ? newDuration : alarmCtx.currentTime,
+    },
+  };
+});
+
 const updateTimerInc = assign(({ timerCtx }) => {
   const newDuration = getTime(
     add(timerCtx.initialDuration, {
@@ -42,7 +107,7 @@ const updateTimerInc = assign(({ timerCtx }) => {
   return {
     timerCtx: {
       ...timerCtx,
-      initialDuration: newDuration,
+      currentTime: newDuration,
     },
   };
 });
@@ -63,14 +128,22 @@ const updateTimerDec = assign(({ timerCtx }) => {
   };
 });
 
+const activateAlarm = assign({
+  alarmCtx: ({ alarmCtx }) => ({ ...alarmCtx, active: true }),
+});
+
+const turnOffAlarm = assign({
+  alarmCtx: ({ alarmCtx }) => ({ ...alarmCtx, active: false }),
+});
+
 export const watchMachine = Machine(
   {
-    initial: 'timer',
+    initial: 'time',
     context: {
       currentTime: 0,
       count: 0,
       timeCtx: {
-        currentTime: format(new Date(), 'HH:mm:ss'),
+        currentTime: new Date().getTime(),
       },
       chronoCtx: {
         currentTime: 0,
@@ -82,28 +155,60 @@ export const watchMachine = Machine(
         initialDuration: 0,
       },
       alarmCtx: {
-        currentTime: format(new Date(), 'HH:mm:ss'),
+        currentTime: new Date().getTime() + 3000,
+        active: false,
+        editMode: 'hours',
       },
     },
     states: {
       time: {
+        entry: assign({
+          timeCtx: ({ timeCtx }) => ({
+            ...timeCtx,
+            currentTime: new Date().getTime(),
+          }),
+        }),
         invoke: {
           id: 'time-tick',
-          src: () => (callback) => {
-            const tick = setInterval(() => callback('TICK'), 1000);
+          src: ({ alarmCtx, timeCtx }) => (callback) => {
+            const tickActions = () => {
+              //   const timeVal = timeCtx.currentTime % DAY;
+              //   const alarmVal = alarmCtx.currentTime % DAY;
+              //   // convert to utc time
+
+              //   console.log('alarm ->', new Date(alarmVal));
+              //   console.log('time ->', new Date(timeVal));
+              //   if (alarmVal === timeVal) {
+              //     console.log('executed');
+              //     callback('ACTIVATE_ALARM');
+              //  }
+              //  console.log('beep');
+              callback('TICK');
+            };
+
+            const tick = setInterval(tickActions, 1000);
 
             return () => clearInterval(tick);
           },
         },
         on: {
-          MODE: 'chrono',
-          TICK: {
-            actions: assign({
+          TICK: [
+            {
+              target: 'alarm',
+              actions: ['activateAlarm'],
+              cond: 'isAlarmOn',
+            },
+            {
+              /* actions: assign({
               timeCtx: () => ({
-                currentTime: format(new Date(), 'HH:mm:ss'),
+                currentTime: new Date().getTime(),
               }),
-            }),
-          },
+            }), */
+              actions: ['tickTime'],
+            },
+          ],
+          ACTIVATE_ALARM: { target: 'alarm', actions: ['activateAlarm'] },
+          MODE: 'chrono',
         },
         initial: 'dateInvisible',
         states: {
@@ -263,24 +368,60 @@ export const watchMachine = Machine(
         on: {
           MODE: 'time',
         },
-        initial: 'initial',
+        initial: 'off',
         states: {
-          initial: {
+          off: {
+            always: [{ target: 'active', cond: 'isAlarmOn' }],
             on: {
               'SET.HOLD': 'edit',
             },
           },
+          active: {
+            on: {
+              '*': 'off',
+            },
+            after: [{ delay: 6e4, target: 'off' }],
+            exit: ['turnOffAlarm'],
+          },
           edit: {
             on: {
-              SET: 'initial',
+              SET: 'off',
             },
             initial: 'hours',
             states: {
-              hours: { on: { ...updateAlarmActions, MODE: 'minutes' } },
-              minutes: {
-                on: { ...updateAlarmActions, MODE: 'seconds' },
+              hours: {
+                on: {
+                  ...updateAlarmActions,
+                  MODE: 'minutes',
+                },
+                entry: assign({
+                  alarmCtx: ({ alarmCtx }) => ({
+                    ...alarmCtx,
+                    editMode: 'hours',
+                  }),
+                }),
               },
-              seconds: { on: { ...updateAlarmActions, MODE: 'hours' } },
+              minutes: {
+                on: {
+                  ...updateAlarmActions,
+                  MODE: 'seconds',
+                },
+                entry: assign({
+                  alarmCtx: ({ alarmCtx }) => ({
+                    ...alarmCtx,
+                    editMode: 'minutes',
+                  }),
+                }),
+              },
+              seconds: {
+                on: { ...updateAlarmActions, MODE: 'hours' },
+                entry: assign({
+                  alarmCtx: ({ alarmCtx }) => ({
+                    ...alarmCtx,
+                    editMode: 'seconds',
+                  }),
+                }),
+              },
             },
           },
         },
@@ -296,16 +437,22 @@ export const watchMachine = Machine(
       }),
       updateTimerInc,
       updateTimerDec,
+      updateAlarmInc,
+      updateAlarmDec,
       resetTimer,
       resetChrono: assign({
         chronoCtx: () => ({
           currentTime: 0,
         }),
       }),
+      activateAlarm,
+      turnOffAlarm,
+      tickTime,
     },
     guards: {
       timerTimesUp,
+      isAlarmOn,
+      isAlarmOff,
     },
   },
 );
-
