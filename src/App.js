@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import format from 'date-fns/format';
+import { ThemeProvider } from 'styled-components';
 import { useMachine } from '@xstate/react';
-import logo from './logo.svg';
 import './App.css';
 import { watchMachine } from 'machines/watchMachine';
+import { TimeDisplay } from './components/TimeDisplay';
+import { theme } from 'theme';
+import { Flex, Box } from 'components/common';
 
 const watchButtons = [
   {
@@ -96,15 +98,42 @@ const getHMS = (time) => {
   return [hours, minutes, seconds];
 };
 
-const getHMS2 = time => {
+const getHMS2 = (time) => {
   const hours = new Date(time).getHours();
   const minutes = new Date(time).getMinutes();
   const seconds = new Date(time).getSeconds();
 
   return [hours, minutes, seconds];
-}
+};
 
-function App() {
+const WatchButton = ({ title, onClick, onHold }) => {
+  const holdFunc = React.useRef(null);
+
+  const handleMouseDown = () => {
+    if (onHold) {
+      holdFunc.current = setTimeout(holdFunc, 3000);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (onHold) {
+      clearTimeout(holdFunc.current);
+    }
+  };
+
+  return (
+    <button
+      class="watch-button"
+      onClick={onClick}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+    >
+      {title}
+    </button>
+  );
+};
+
+const Watch = (props) => {
   const [state, send] = useMachine(watchMachine);
 
   const timeState = state.context.timeCtx;
@@ -122,37 +151,26 @@ function App() {
 
         const timerMode = state.value.timer.edit;
 
-        return (
-          <div style={{ display: 'flex' }}>
-            <Blinking stop={timerMode !== 'hours'}>{hours}</Blinking>
-            <div>:</div>
-            <Blinking stop={timerMode !== 'minutes'}>{minutes}</Blinking>
-            <div>:</div>
-            <Blinking stop={timerMode !== 'seconds'}>{seconds}</Blinking>
-          </div>
-        );
+        return [
+          <Blinking stop={timerMode !== 'hours'}>{hours}</Blinking>,
+          <Blinking stop={timerMode !== 'minutes'}>{minutes}</Blinking>,
+          <Blinking stop={timerMode !== 'seconds'}>{seconds}</Blinking>,
+        ];
       } else if (stringState.includes('timer.timesUp')) {
-        return (
-          <div style={{ display: 'flex' }}>
-            <Blinking stop={true}>{hours}</Blinking>
-            <div>:</div>
-            <Blinking stop={true}>{minutes}</Blinking>
-            <div>:</div>
-            <Blinking stop={true}>{seconds}</Blinking>
-            <Blinking>
-              <span>TIMES UP</span>
-            </Blinking>
-          </div>
-        );
+        return [
+          <Blinking stop={true}>{hours}</Blinking>,
+          <Blinking stop={true}>{minutes}</Blinking>,
+          <Blinking stop={true}>{seconds}</Blinking>,
+        ];
       } else {
-        return `${hours}:${minutes}:${seconds}`;
+        return `${hours}:${minutes}:${seconds}`.split(':');
       }
     }
 
     if (state.matches('chrono')) {
       const [hours, minutes, seconds] = getHMS(chronoState.currentTime);
 
-      return `${hours}:${minutes}:${seconds}`;
+      return `${hours}:${minutes}:${seconds}`.split(':');
     }
 
     if (state.matches('alarm')) {
@@ -161,18 +179,19 @@ function App() {
       const formattedTime = `${hours}:${minutes}:${seconds}`;
 
       if (stringState.includes('alarm.active')) {
-        return (
-          <Blinking>{formattedTime}</Blinking>
-        )
+        return formattedTime
+          .split(':')
+          .map((unit) => <Blinking>{unit}</Blinking>);
       }
-      return formattedTime;
+
+      return formattedTime.split(':');
     }
 
     const hours = new Date(timeState.currentTime).getHours();
     const minutes = new Date(timeState.currentTime).getMinutes();
     const seconds = new Date(timeState.currentTime).getSeconds();
 
-    return `${hours}:${minutes}:${seconds}`;
+    return [hours, minutes, seconds];
   };
 
   const isPaused = [{ timer: 'pause' }, { chrono: 'pause' }].some(
@@ -182,38 +201,88 @@ function App() {
     state.matches,
   );
 
+  const [hours, minutes, seconds] = getTimeDislay();
+
+  const watchActions = {
+    SET: () => send('SET'),
+    'SET.HOLD': () => send('SET.HOLD'),
+    MODE: () => send('MODE'),
+    ADJUST: () => send('ADJUST'),
+    'ADJUST.HOLD': () => send('ADJUST.HOLD'),
+    TOGGLE: () => send('TOGGLE'),
+  };
+
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div>{getTimeDislay()}</div>
+    <Flex>
+      <div className="left-content">
+        <Flex
+          flexDirection="column"
+          height="100%"
+          alignContent="stretch"
+          justifyContent="space-around"
+        >
+          <Box>
+            <WatchButton
+              title="Light / Set"
+              onClick={watchActions.SET}
+              onHold={watchActions['SET.HOLD']}
+            />
+          </Box>
+          <Box>
+            <WatchButton title="Mode" onClick={watchActions.MODE} />
+          </Box>
+        </Flex>
+      </div>
+      <div className="center-content">
+        <div>
+          <TimeDisplay hours={hours} minutes={minutes} seconds={seconds} />
+        </div>
         {isPaused && (
           <Blinking>
             <span>Paused</span>
           </Blinking>
         )}
         {isEditMode && <span>Edit</span>}
+        <div>
+          <span>Mode: </span>
+          <span>
+            {state.matches('time') && 'TIME'}
+            {state.matches('chrono') && 'CHRONO'}
+            {state.matches('timer') && 'TIMER'}
+            {state.matches('alarm') && 'ALARM'}
+          </span>
+        </div>
       </div>
-      <div>
-        <span>Mode: </span>
-        <span>
-          {state.matches('time') && 'TIME'}
-          {state.matches('chrono') && 'CHRONO'}
-          {state.matches('timer') && 'TIMER'}
-          {state.matches('alarm') && 'ALARM'}
-        </span>
+      <div className="right-content">
+        <Flex
+          flexDirection="column"
+          height="100%"
+          alignContent="stretch"
+          justifyContent="space-around"
+        >
+          <Box>
+            <WatchButton title="Pause / Start" onClick={watchActions.TOGGLE} />
+          </Box>
+          <Box>
+            <WatchButton
+              title="Adj"
+              onClick={watchActions.ADJUST}
+              onHold={watchActions['ADJUST.HOLD']}
+            />
+          </Box>
+        </Flex>
       </div>
-      <div className="watch-buttons-container">
-        {watchButtons.map((btn) => (
-          <button
-            className="watch-button"
-            key={btn.id}
-            onClick={() => send(btn.id)}
-          >
-            {btn.label}
-          </button>
-        ))}
+    </Flex>
+  );
+};
+
+function App() {
+  return (
+    <ThemeProvider theme={theme}>
+      <div className="App">
+        <Watch />
       </div>
-    </div>
+    </ThemeProvider>
   );
 }
 

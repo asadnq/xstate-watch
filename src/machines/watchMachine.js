@@ -155,7 +155,7 @@ export const watchMachine = Machine(
         initialDuration: 0,
       },
       alarmCtx: {
-        currentTime: new Date().getTime() + 3000,
+        currentTime: new Date().getTime() - 3000,
         active: false,
         editMode: 'hours',
       },
