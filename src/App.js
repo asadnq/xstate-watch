@@ -110,24 +110,27 @@ const WatchButton = ({ title, onClick, onHold }) => {
   const holdFunc = React.useRef(null);
 
   const handleMouseDown = () => {
-    if (onHold) {
-      holdFunc.current = setTimeout(holdFunc, 3000);
+    if (typeof onClick === 'function') {
+      holdFunc.current = setTimeout(onClick, 100);
+    }
+
+    if (typeof onHold === 'function') {
+      holdFunc.current = setTimeout(onHold, 3000);
     }
   };
 
   const handleMouseUp = () => {
-    if (onHold) {
+    if (typeof onHold === 'function') {
       clearTimeout(holdFunc.current);
+      holdFunc.current = null;
     }
   };
 
   return (
     <button
-      class="watch-button"
-      onClick={onClick}
+      className="watch-button"
       onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-    >
+      onMouseUp={handleMouseUp}>
       {title}
     </button>
   );
@@ -219,8 +222,7 @@ const Watch = (props) => {
           flexDirection="column"
           height="100%"
           alignContent="stretch"
-          justifyContent="space-around"
-        >
+          justifyContent="space-around">
           <Box>
             <WatchButton
               title="Light / Set"
@@ -258,8 +260,7 @@ const Watch = (props) => {
           flexDirection="column"
           height="100%"
           alignContent="stretch"
-          justifyContent="space-around"
-        >
+          justifyContent="space-around">
           <Box>
             <WatchButton title="Pause / Start" onClick={watchActions.TOGGLE} />
           </Box>
