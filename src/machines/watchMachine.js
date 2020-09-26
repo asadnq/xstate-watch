@@ -18,14 +18,6 @@ const tickTime = assign(({ alarmCtx, timeCtx }) => {
   const t = Math.floor((timeCtx.currentTime % DAY) / 1000);
   const alarmActive = a === t;
 
-  // console.log('alarm -> ', new Date(a));
-  // console.log('time -> ', new Date(t));
-
-  console.log('alarm -> ', a);
-  console.log('time -> ', t);
-
-  console.log('alarm active', alarmActive);
-
   return {
     timeCtx: {
       ...timeCtx,
