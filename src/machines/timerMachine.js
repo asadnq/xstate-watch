@@ -1,14 +1,14 @@
 import { Machine, assign } from 'xstate';
 import { add, getTime } from 'date-fns';
 
-const runTimer = () => (callback) => {
+const runTimer = () => callback => {
   const tick = setInterval(() => callback('TICK'), 1000);
 
   return () => clearInterval(tick);
 };
 
 const subTime = assign({
-  value: (ctx) => ctx.value + 1000,
+  value: ctx => ctx.value + 1000,
 });
 
 const updateTimer = assign({

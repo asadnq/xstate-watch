@@ -54,7 +54,7 @@ const useInterval = (callback, delay) => {
   }, [delay]);
 };
 
-const Blinking = (props) => {
+const Blinking = props => {
   const { stop } = props;
   const [opacity, setOpacity] = useState(1);
 
@@ -88,7 +88,7 @@ const formatTimeUnit = (time, { zero }) => {
   return strTime;
 };
 
-const getHMS = (time) => {
+const getHMS = time => {
   const config = { zero: true };
 
   const hours = formatTimeUnit(Math.floor((time % DAY) / HOUR), config);
@@ -98,7 +98,7 @@ const getHMS = (time) => {
   return [hours, minutes, seconds];
 };
 
-const getHMS2 = (time) => {
+const getHMS2 = time => {
   const hours = new Date(time).getHours();
   const minutes = new Date(time).getMinutes();
   const seconds = new Date(time).getSeconds();
@@ -136,7 +136,7 @@ const WatchButton = ({ title, onClick, onHold }) => {
   );
 };
 
-const Watch = (props) => {
+const Watch = props => {
   const [state, send] = useMachine(watchMachine);
 
   const timeState = state.context.timeCtx;
@@ -184,7 +184,7 @@ const Watch = (props) => {
       if (stringState.includes('alarm.active')) {
         return formattedTime
           .split(':')
-          .map((unit) => <Blinking>{unit}</Blinking>);
+          .map(unit => <Blinking>{unit}</Blinking>);
       }
 
       return formattedTime.split(':');

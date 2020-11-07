@@ -10,7 +10,7 @@ export const tickMachine = Machine({
     start: {
       invoke: {
         id: 'tick-interval',
-        src: () => (callback) => {
+        src: () => callback => {
           const id = setInterval(() => callback('TICK'), 1000);
           return () => clearInterval(id);
         },

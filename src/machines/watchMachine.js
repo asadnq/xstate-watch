@@ -162,7 +162,7 @@ export const watchMachine = Machine(
         }),
         invoke: {
           id: 'time-tick',
-          src: ({ alarmCtx, timeCtx }) => (callback) => {
+          src: ({ alarmCtx, timeCtx }) => callback => {
             const tickActions = () => {
               //   const timeVal = timeCtx.currentTime % DAY;
               //   const alarmVal = alarmCtx.currentTime % DAY;
@@ -234,7 +234,7 @@ export const watchMachine = Machine(
           start: {
             invoke: {
               id: 'run-chrono',
-              src: () => (callback) => {
+              src: () => callback => {
                 const run = setInterval(() => callback('TICK'), 1000);
 
                 return () => clearInterval(run);
